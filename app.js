@@ -5,6 +5,9 @@ const jwt=require('jsonwebtoken')
 const dotenv=require('dotenv')
 dotenv.config()
 const {rateLimit}=require('express-rate-limit')
+
+const nodemailer=require('nodemailer')
+
 const app=express();
 const port=process.env.PORT
 let secretkey=process.env.SECRETKEY
@@ -79,6 +82,16 @@ app.post('/products',async (req,res)=>{
   }
 })
 
+app.get('/details',(req,res)=>{
+   let location=req.query.location;
+   let age=req.query.age
+   let company=req.query.company
+   res.send(`this person is living in ${location}and his age is ${age} and he is working in ${company}`)
+})
+
+
+
+
 //api-3-->fetch the data from the dtabase and send these data to client
 app.get('/products',async (req,res)=>{
   try {
@@ -91,6 +104,16 @@ app.get('/products',async (req,res)=>{
   }
 })
 
+
+app.get('/products/:id',async (req,res)=>{
+  id=req.params.id
+  let singleproduct= await productsmodel.findById(id)
+  res.json(singleproduct)
+})
+
+
+
+
 //registration
 app.post('/register',async (req,res)=>{
   try {
@@ -101,6 +124,32 @@ app.post('/register',async (req,res)=>{
    let hashedpassword=await bcrypt.hash(password,10)
    finalusers.create({email,username,password:hashedpassword})
   res.status(201).json({msg:"registration succesful"})
+   
+  let transporter=await nodemailer.createTransport(
+  {
+    service:'gmail',
+    auth:{
+      user:process.env.GMAIL_USER,
+      pass:process.env.GMAIL_APP_PASSWORD
+    }
+  }
+   )
+
+   let mailOptions={
+    from:process.env.GMAIL_USER,
+    to:email,
+    subject:'ACCOUNT REGISTRATION',
+    html:`Hi ${username} your account is created succesfully`
+   }
+
+  transporter.sendMail(mailOptions,(error)=>{
+    if(error) throw error
+   console.log('email sent succesfully')
+  }) 
+
+
+
+
   } catch (error) {
     res.json({msg:error.message})
   }
