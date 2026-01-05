@@ -7,8 +7,10 @@ dotenv.config()
 const {rateLimit}=require('express-rate-limit')
 
 const nodemailer=require('nodemailer')
+ const helmet=require('helmet');
 
 const app=express();
+ app.use(helmet())
 const port=process.env.PORT
 let secretkey=process.env.SECRETKEY
 //s1-require he package
@@ -75,6 +77,23 @@ app.post('/products',async (req,res)=>{
     const {title,price,image}=req.body
     await  productsmodel.create({title,price,image})
     res.status(201).json({msg:"products are added succesfully"})
+   let transporter= await nodemailer.createTransport({
+      service:'gmail',
+      auth:{
+        user:process.env.GMAIL_USER,
+        pass:process.env.GMAIL_APP_PASSWORD
+      }
+     })
+
+     let mailOptions={
+      from:process.env.GMAIL_USER,
+      to:'chrohankumar12345@gmail.com',
+      subject:'product update',
+      html:`A new product is added in our store`
+     }
+
+     transporter.sendMail(mailOptions)
+
   } catch (error) {
     res.json({
       msg:error.message
