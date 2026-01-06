@@ -112,13 +112,67 @@ app.get('/details',(req,res)=>{
 
 
 //api-3-->fetch the data from the dtabase and send these data to client
+// ========== FILTERING, SORTING & PAGINATION ==========
 app.get('/products',async (req,res)=>{
   try {
-   let products= await productsmodel.find()
-   res.status(200).json(products)
+    // ===== STEP 1: FILTERING =====
+    let filter = {}
+    
+    // Filter by title (search) - case insensitive
+    if(req.query.search){
+      filter.title = { $regex: req.query.search, $options: 'i' }
+    }
+    
+    // Filter by exact price
+    if(req.query.price){
+      filter.price = parseFloat(req.query.price)
+    }
+    
+    // Filter by price range (min and max)
+    if(req.query.minPrice || req.query.maxPrice){
+      filter.price = {}
+      if(req.query.minPrice) filter.price.$gte = parseFloat(req.query.minPrice)
+      if(req.query.maxPrice) filter.price.$lte = parseFloat(req.query.maxPrice)
+    }
+    
+    // ===== STEP 2: SORTING =====
+    // sortBy = field name (title, price)
+    // sortOrder = asc or desc
+    let sortBy = req.query.sortBy || 'title'  // default sort by title
+    let sortOrder = req.query.sortOrder === 'desc' ? -1 : 1  // default ascending
+    let sort = { [sortBy]: sortOrder }
+    
+    // ===== STEP 3: PAGINATION =====
+    let page = parseInt(req.query.page) || 1  // default page 1
+    let limit = parseInt(req.query.limit) || 10  // default 10 items per page
+    let skip = (page - 1) * limit  // calculate how many to skip
+    
+    // ===== STEP 4: EXECUTE QUERY =====
+    // Run both queries in parallel for better performance
+    let [products, totalCount] = await Promise.all([
+      productsmodel.find(filter).sort(sort).skip(skip).limit(limit),
+      productsmodel.countDocuments(filter)
+    ])
+    
+    // Calculate pagination info
+    let totalPages = Math.ceil(totalCount / limit)
+    
+    res.status(200).json({
+      success: true,
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    })
   } catch (error) {
-    res.json({
-      msg:error.message
+    res.status(500).json({
+      success: false,
+      msg: error.message
     })
   }
 })
